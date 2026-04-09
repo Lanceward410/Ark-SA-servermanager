@@ -1,0 +1,66 @@
+{
+  "UseFixedSchedule": true,
+  "ScheduleIntervalMinutes": 360,
+  "FixedScheduleHoursEST": [0, 6, 12, 18],
+  "TimeZone": "Eastern Standard Time",
+
+  "BroadcastTemplates": [
+    "Server restart in 15 minutes for maintenance",
+    "Discord NSD74ZZGtn - please report any issues!",
+    ""
+  ],
+
+  "CountdownMessages": [
+    { "SecondsRemaining": 300, "Message": "Server restarting in 5 minutes. Please find a safe location. Do not attempt survivor upload/download while nearing restart." },
+    { "SecondsRemaining": 240, "Message": "Server restarting in 4 minutes." },
+    { "SecondsRemaining": 180, "Message": "Server restarting in 3 minutes." },
+    { "SecondsRemaining": 120, "Message": "Server restarting in 2 minutes." },
+    { "SecondsRemaining": 60, "Message": "Server restarting in 1 minute. Discord NSD74ZZGtn" },
+    { "SecondsRemaining": 30, "Message": "Server restarting in 30 seconds!" },
+    { "SecondsRemaining": 15, "Message": "Server restarting in 15 seconds! Disconnecting all players." }
+  ],
+
+  "ShutdownMessages": [
+    { "SecondsRemaining": 300, "Message": "Server shutting down briefly for maintenance in 5 minutes. Please find a safe location." },
+    { "SecondsRemaining": 240, "Message": "Server shutting down briefly for maintenance in 4 minutes." },
+    { "SecondsRemaining": 180, "Message": "Server shutting down briefly for maintenance in 3 minutes." },
+    { "SecondsRemaining": 120, "Message": "Server shutting down briefly for maintenance in 2 minutes." },
+    { "SecondsRemaining": 60, "Message": "Server shutting down briefly for maintenance in 1 minute. Discord NSD74ZZGtn" },
+    { "SecondsRemaining": 30, "Message": "Server shutting down briefly in 30 seconds!" },
+    { "SecondsRemaining": 15, "Message": "Server shutting down in 15 seconds! Disconnecting all players." }
+  ],
+
+  "PeriodicMessages": {
+    "Enabled": true,
+    "IntervalMinutes": 45,
+    "RandomizeOrder": true,
+    "PauseBeforeRestartMinutes": 10,
+    "ResumeAfterRestartMinutes": 10,
+    "Messages": [
+      "Shiny dinos spawn up to 30 levels higher than their counterparts, with unique abilities and colors. Craft the Shiny dino tracker to get hunting.",
+      "Blue Supply Crates contain boss artifacts and dino tributes!",
+      "This server uses the Automated Ark mod. Craft the AA Workbench at Level 90 to get started!",
+      "Discord NSD74ZZGtn - Please report any issues and suggestions! Your feedback makes the server better.",
+      "When transferring servers, wait 5 seconds before clicking Spawn. If you click too soon, you mave have to try again from main menu.",
+      "All maps have 'Ragnarok Style' Dino Level Distribution (less low levels)",
+      "Take advantage of maps with classic supply drops! White drops can contain starter kits, while red drops can contain Tek building supplies",
+      "Utilities Plus Spyglass can be crafted at level 50. Other Utilities Plus items are found in White Supply Crates!"
+    ]
+  },
+
+  "BroadcastStaggerSeconds": 5,
+  "PostShutdownCooldownSeconds": 15,
+  "ServerStartStaggerSeconds": 5,
+  "KickMonitorDurationSeconds": 7,
+  "KickLoopIntervalMs": 1000,
+  "UpdateMaxRetries": 3,
+  "UpdateRetryDelaySeconds": 30,
+  "ProcessExitTimeoutSeconds": 120,
+  "SaveWorldDelaySeconds": 5,
+  "RconTimeoutMs": 30000,
+
+  "ASCTConfigRelativePath": "..\\..\\..\\..\\ASCTGlobalConfig.json",
+  "DepotDownloaderRelativePath": "..\\..\\..\\..\\depotdownloader\\DepotDownloader.exe",
+  "SteamAppId": 2430930,
+  "DepotDownloaderExtraArgs": ""
+}

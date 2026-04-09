@@ -1,0 +1,198 @@
+<Window x:Class="ArkAutomata.GUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ArkAutomata.GUI"
+        mc:Ignorable="d"
+        Title="ARK Automata - Server Management Console" 
+        Height="700" Width="1200"
+        WindowStartupLocation="CenterScreen">
+    
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <local:InverseBooleanConverter x:Key="InverseBoolConverter"/>
+    </Window.Resources>
+    
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="0" Background="#2C3E50" Padding="10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <TextBlock Text="🟢" FontSize="16" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <TextBlock Text="{Binding StatusText}" Foreground="White" FontWeight="Bold" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <TextBlock Grid.Column="2" Text="{Binding NextRestartText}" Foreground="#ECF0F1" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- Main Content -->
+        <TabControl Grid.Row="1" Padding="10">
+            <!-- Dashboard Tab -->
+            <TabItem Header="📁 Dashboard">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="20">
+                        <!-- Manual Controls -->
+                        <GroupBox Header="Manual Controls" Padding="15" Margin="0,0,0,20">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    
+                                    <Button Grid.Column="0" Content="▶ Start All Servers" 
+                                            Command="{Binding StartAllServersCommand}"
+                                            IsEnabled="{Binding IsCycleInProgress, Converter={StaticResource InverseBoolConverter}}"
+                                            Height="40" FontSize="14" FontWeight="Bold" 
+                                            Background="#27AE60" Foreground="White"/>
+                                    
+                                    <Button Grid.Column="2" Content="🔄 Restart All Servers" 
+                                            Command="{Binding ManualRestartCommand}"
+                                            IsEnabled="{Binding IsCycleInProgress, Converter={StaticResource InverseBoolConverter}}"
+                                            Height="40" FontSize="14" FontWeight="Bold" 
+                                            Background="#E74C3C" Foreground="White"/>
+                                    
+                                    <Button Grid.Column="4" Content="🛑 Stop All Servers" 
+                                            Command="{Binding ManualShutdownCommand}"
+                                            IsEnabled="{Binding IsCycleInProgress, Converter={StaticResource InverseBoolConverter}}"
+                                            Height="40" FontSize="14" FontWeight="Bold" 
+                                            Background="#E67E22" Foreground="White"/>
+                                </Grid>
+
+                                <Grid Margin="0,15,0,15">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="10"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                                              Content="Run server updates during restart/shutdown cycles" 
+                                              IsChecked="{Binding RunUpdates}"
+                                              FontWeight="Bold"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" 
+                                               Text="Countdown Duration:" 
+                                               FontWeight="Bold" 
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,10,0"/>
+                                    <ComboBox Grid.Row="2" Grid.Column="1"
+                                              ItemsSource="{Binding CountdownDurations}"
+                                              SelectedItem="{Binding SelectedCountdownDuration}"
+                                              Width="150" Height="30"
+                                              HorizontalAlignment="Left"/>
+                                </Grid>
+
+                                <TextBlock Text="Broadcast Message to All Servers:" FontWeight="Bold" Margin="0,0,0,5"/>
+                                
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Button Grid.Column="0"
+                                            Content="📢 Send Broadcast to All" 
+                                            Command="{Binding BroadcastCommand}" 
+                                            Height="35" Padding="15,0" 
+                                            Background="#27AE60" Foreground="White"/>
+                                    
+                                    <ComboBox Grid.Column="2"
+                                              ItemsSource="{Binding BroadcastTemplates}" 
+                                              SelectedItem="{Binding BroadcastMessage}"
+                                              Height="35"/>
+                                </Grid>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Servers Grid -->
+                        <GroupBox Header="Servers" Padding="15">
+                            <DataGrid ItemsSource="{Binding Servers}" 
+                                      SelectedItem="{Binding SelectedServer}"
+                                      AutoGenerateColumns="False" 
+                                      IsReadOnly="True"
+                                      CanUserAddRows="False"
+                                      HeadersVisibility="Column">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Status" Binding="{Binding StatusIcon}" Width="60"/>
+                                    <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*"/>
+                                    <DataGridTextColumn Header="Players" Binding="{Binding PlayerCountText}" Width="80"/>
+                                    <DataGridTextColumn Header="Game Port" Binding="{Binding GamePort}" Width="100"/>
+                                    <DataGridTextColumn Header="RCON Port" Binding="{Binding RconPort}" Width="100"/>
+                                    <DataGridTextColumn Header="Map" Binding="{Binding Map}" Width="120"/>
+                                    <DataGridTemplateColumn Header="Actions" Width="280">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Button Content="{Binding StartRestartButtonText}" 
+                                                            Command="{Binding DataContext.StartRestartServerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"
+                                                            Padding="5" Height="25" Width="80" Margin="0,0,5,0"/>
+                                                    <Button Content="🛑 Stop" 
+                                                            Command="{Binding DataContext.StopServerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"
+                                                            Padding="5" Height="25" Width="60" Margin="0,0,5,0"
+                                                            IsEnabled="{Binding IsOnline}"/>
+                                                    <Button Content="🔧 RCON" 
+                                                            Command="{Binding DataContext.OpenRconConsoleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"
+                                                            Padding="5" Height="25" Width="70"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Logs Tab -->
+            <TabItem Header="📊 Logs">
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <Button Grid.Row="0" Content="📁 Open Log Folder" 
+                            Click="OpenLogFolder_Click"
+                            HorizontalAlignment="Right" 
+                            Padding="10,5" Margin="0,0,0,10"/>
+
+                    <TextBox Grid.Row="1" 
+                             x:Name="LogTextBox"
+                             IsReadOnly="True" 
+                             VerticalScrollBarVisibility="Auto"
+                             FontFamily="Consolas" 
+                             FontSize="12"
+                             Background="#1E1E1E" 
+                             Foreground="#D4D4D4"
+                             Padding="10"/>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>
