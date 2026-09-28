@@ -6,9 +6,7 @@ using System.Timers;
 
 namespace ArkAutomata.GUI.Services;
 
-/// <summary>
-/// Manages scheduled server restarts at fixed clock times (e.g., 12:00 PM, 2:00 PM EST).
-/// </summary>
+// Clock-hour restarts. A manual cycle does not move the next slot.
 public sealed class SchedulerService : IDisposable
 {
     private readonly Orchestrator _orchestrator;
@@ -42,13 +40,11 @@ public sealed class SchedulerService : IDisposable
 
         _log.Info("Scheduler service starting...");
 
-        // Calculate first scheduled restart
         _nextScheduledRestart = CalculateNextScheduledRestart();
         _log.Info($"Next scheduled restart: {_nextScheduledRestart:yyyy-MM-dd HH:mm:ss} EST");
         NextRestartChanged?.Invoke(_nextScheduledRestart);
         StatusChanged?.Invoke($"Idle - next restart at {_nextScheduledRestart:HH:mm} EST");
 
-        // Check every 30 seconds
         _timer = new System.Timers.Timer(30_000);
         _timer.Elapsed += OnTimerElapsed;
         _timer.AutoReset = true;
@@ -92,7 +88,6 @@ public sealed class SchedulerService : IDisposable
         _isRunningCycle = false;
         CycleCompleted?.Invoke(success);
 
-        // Calculate next restart
         _nextScheduledRestart = CalculateNextScheduledRestart();
         _log.Info($"Next scheduled restart: {_nextScheduledRestart:yyyy-MM-dd HH:mm:ss} EST");
         NextRestartChanged?.Invoke(_nextScheduledRestart);
@@ -120,7 +115,7 @@ public sealed class SchedulerService : IDisposable
         _isRunningCycle = false;
         CycleCompleted?.Invoke(success);
 
-        // Next scheduled restart is UNCHANGED
+        // Leave the next scheduled slot alone. This run was extra.
         StatusChanged?.Invoke($"Manual cycle complete - next scheduled restart: {_nextScheduledRestart:HH:mm} EST");
         return success;
     }
@@ -145,7 +140,6 @@ public sealed class SchedulerService : IDisposable
         _isRunningCycle = false;
         CycleCompleted?.Invoke(success);
 
-        // Next scheduled restart is UNCHANGED
         StatusChanged?.Invoke($"Manual shutdown complete - next scheduled restart: {_nextScheduledRestart:HH:mm} EST");
         return success;
     }
@@ -155,22 +149,19 @@ public sealed class SchedulerService : IDisposable
         var estZone = TimeZoneInfo.FindSystemTimeZoneById(_config.TimeZone);
         var nowEst = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, estZone);
 
-        // Get restart hours from config
         var restartHours = _config.FixedScheduleHoursEST.OrderBy(h => h).ToList();
 
-        // Find next restart hour
         int currentHour = nowEst.Hour;
         var nextHours = restartHours.Where(h => h > currentHour).ToList();
         
         if (nextHours.Count == 0)
         {
-            // No more restarts today - use first hour tomorrow
+            // Nothing left today, so the first hour tomorrow.
             int nextHour = restartHours.First();
             var tomorrow = nowEst.Date.AddDays(1);
             return new DateTime(tomorrow.Year, tomorrow.Month, tomorrow.Day, nextHour, 0, 0, DateTimeKind.Unspecified);
         }
 
-        // Next restart is today
         return new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, nextHours[0], 0, 0, DateTimeKind.Unspecified);
     }
 

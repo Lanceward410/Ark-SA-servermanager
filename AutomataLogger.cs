@@ -3,9 +3,7 @@ using System.IO;
 
 namespace ArkAutomata;
 
-/// <summary>
-/// Thread-safe logger that writes to both console and daily-rotated log files in autologs/.
-/// </summary>
+// Console, plus one file per day under autologs/.
 public sealed class AutomataLogger
 {
     private readonly string _logDir;
@@ -39,8 +37,7 @@ public sealed class AutomataLogger
             }
             catch
             {
-                // If log file write fails, don't crash the application.
-                // Console output above still captures the message.
+                // Disk full or a locked file should not take the process down.
             }
         }
     }

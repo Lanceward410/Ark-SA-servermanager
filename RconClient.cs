@@ -7,10 +7,7 @@ using System.Threading.Tasks;
 
 namespace ArkAutomata;
 
-/// <summary>
-/// Minimal Source RCON protocol client for communicating with ARK: Survival Ascended servers.
-/// Implements connect, authenticate, and send-command over TCP.
-/// </summary>
+// Source RCON.
 public sealed class RconClient : IDisposable
 {
     private TcpClient? _tcp;
@@ -28,10 +25,6 @@ public sealed class RconClient : IDisposable
         _timeoutMs = timeoutMs;
     }
 
-    /// <summary>
-    /// Connect to an RCON server and authenticate with the given password.
-    /// Throws on connection failure or invalid password.
-    /// </summary>
     public async Task ConnectAsync(string host, int port, string password)
     {
         _tcp = new TcpClient();
@@ -40,11 +33,10 @@ public sealed class RconClient : IDisposable
         await _tcp.ConnectAsync(host, port, connectCts.Token);
         _stream = _tcp.GetStream();
 
-        // Send authentication packet
         int authId = ++_nextId;
         await SendPacketAsync(authId, SERVERDATA_AUTH, password);
 
-        // Read auth response — some servers send an empty RESPONSE_VALUE first
+        // Empty RESPONSE_VALUE first, then the auth result. Id -1 means bad password.
         var resp = await ReadPacketAsync();
         if (resp.Type == SERVERDATA_RESPONSE_VALUE)
             resp = await ReadPacketAsync();
@@ -53,9 +45,6 @@ public sealed class RconClient : IDisposable
             throw new InvalidOperationException("RCON authentication failed: invalid password");
     }
 
-    /// <summary>
-    /// Send an RCON command and return the server's response body.
-    /// </summary>
     public async Task<string> SendCommandAsync(string command)
     {
         if (_stream == null)
@@ -67,8 +56,6 @@ public sealed class RconClient : IDisposable
         var resp = await ReadPacketAsync();
         return resp.Body;
     }
-
-    // ── Packet I/O ──────────────────────────────────────────────────────────
 
     private async Task SendPacketAsync(int id, int type, string body)
     {
@@ -84,12 +71,12 @@ public sealed class RconClient : IDisposable
 
         using var ms = new MemoryStream(4 + packetSize);
         using var bw = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true);
-        bw.Write(packetSize);       // Size prefix (NOT included in size value)
+        bw.Write(packetSize); // size prefix is not part of the size value
         bw.Write(id);
         bw.Write(type);
         bw.Write(bodyBytes);
-        bw.Write((byte)0);          // Body null terminator
-        bw.Write((byte)0);          // Empty string null terminator
+        bw.Write((byte)0);
+        bw.Write((byte)0); // second null is the empty string the protocol requires
 
         byte[] packet = ms.ToArray();
 
@@ -105,7 +92,6 @@ public sealed class RconClient : IDisposable
 
         using var cts = new CancellationTokenSource(_timeoutMs);
 
-        // Read 4-byte size prefix
         byte[] sizeBuffer = new byte[4];
         await ReadExactAsync(sizeBuffer, 4, cts.Token);
         int size = BitConverter.ToInt32(sizeBuffer, 0);
@@ -113,7 +99,6 @@ public sealed class RconClient : IDisposable
         if (size < 10 || size > 65536)
             throw new InvalidDataException($"Invalid RCON packet size: {size}");
 
-        // Read the rest of the packet
         byte[] payload = new byte[size];
         await ReadExactAsync(payload, size, cts.Token);
 
@@ -141,8 +126,6 @@ public sealed class RconClient : IDisposable
         }
     }
 
-    // ── Disposal ────────────────────────────────────────────────────────────
-
     public void Dispose()
     {
         _stream?.Dispose();
@@ -150,8 +133,6 @@ public sealed class RconClient : IDisposable
         _stream = null;
         _tcp = null;
     }
-
-    // ── Internal types ──────────────────────────────────────────────────────
 
     private readonly record struct RconPacket(int Id, int Type, string Body);
 }

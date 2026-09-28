@@ -6,10 +6,7 @@ using System.Timers;
 
 namespace ArkAutomata.GUI.Services;
 
-/// <summary>
-/// Manages periodic "tips and tricks" messages broadcast to all servers.
-/// Messages are randomized and sent at regular intervals, avoiding restart windows.
-/// </summary>
+// Tips on a timer. Stays quiet in the window around a scheduled restart.
 public sealed class PeriodicMessageService : IDisposable
 {
     private readonly Orchestrator _orchestrator;
@@ -58,20 +55,17 @@ public sealed class PeriodicMessageService : IDisposable
         _log.Info($"Message count: {_config.PeriodicMessages.Messages.Count}");
         _log.Info($"Randomize order: {_config.PeriodicMessages.RandomizeOrder}");
 
-        // Shuffle messages initially
         ShuffleMessages();
 
-        // Hook into scheduler events to pause during restarts
         _scheduler.CycleStarted += OnRestartCycleStarted;
         _scheduler.CycleCompleted += OnRestartCycleCompleted;
 
-        // Start timer - first message will be sent after ResumeAfterRestartMinutes
         int initialDelayMs = _config.PeriodicMessages.ResumeAfterRestartMinutes * 60 * 1000;
         _log.Info($"First message will be sent in {_config.PeriodicMessages.ResumeAfterRestartMinutes} minutes.");
 
         _timer = new System.Timers.Timer(initialDelayMs);
         _timer.Elapsed += OnTimerElapsed;
-        _timer.AutoReset = false; // We'll reset it manually to handle variable delays
+        _timer.AutoReset = false; // next delay is not always the same interval
         _timer.Start();
     }
 
@@ -92,14 +86,12 @@ public sealed class PeriodicMessageService : IDisposable
 
     private void OnRestartCycleCompleted(bool success)
     {
-        // Reshuffle messages after each restart cycle
         if (_config.PeriodicMessages.RandomizeOrder)
         {
             ShuffleMessages();
             _log.Info("[PeriodicMessages] Messages reshuffled after restart.");
         }
 
-        // Resume after configured delay
         int resumeDelayMs = _config.PeriodicMessages.ResumeAfterRestartMinutes * 60 * 1000;
         _pausedUntil = DateTime.Now.AddMilliseconds(resumeDelayMs);
 
@@ -123,20 +115,16 @@ public sealed class PeriodicMessageService : IDisposable
                 return;
             }
 
-            // Check if we're too close to a scheduled restart
             if (IsTooCloseToRestart())
             {
                 _log.Info("[PeriodicMessages] Skipped (too close to scheduled restart).");
-                
-                // Reschedule after the restart window passes
+
                 RescheduleAfterRestartWindow();
                 return;
             }
 
-            // Send the next message
             await SendNextMessageAsync();
 
-            // Schedule next message at regular interval
             int intervalMs = _config.PeriodicMessages.IntervalMinutes * 60 * 1000;
             _timer = new System.Timers.Timer(intervalMs);
             _timer.Elapsed += OnTimerElapsed;
@@ -147,7 +135,6 @@ public sealed class PeriodicMessageService : IDisposable
         {
             _log.Error($"[PeriodicMessages] Error: {ex.Message}");
             
-            // Retry after 5 minutes on error
             _timer = new System.Timers.Timer(5 * 60 * 1000);
             _timer.Elapsed += OnTimerElapsed;
             _timer.AutoReset = false;
@@ -167,21 +154,19 @@ public sealed class PeriodicMessageService : IDisposable
         {
             var nextRestart = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, restartHour, 0, 0);
             
-            // If restart is in the past today, skip it
             if (nextRestart < nowEst)
                 continue;
 
             var minutesUntilRestart = (nextRestart - nowEst).TotalMinutes;
             
-            // Too close if within the "pause before" window
             if (minutesUntilRestart <= _config.PeriodicMessages.PauseBeforeRestartMinutes)
             {
                 _log.Info($"[PeriodicMessages] Within {_config.PeriodicMessages.PauseBeforeRestartMinutes}-minute window before {restartHour:D2}:00 restart.");
                 return true;
             }
 
-            // Check if we just came out of a restart (within "resume after" window)
-            var minutesSinceRestart = (nowEst - nextRestart.AddHours(-6)).TotalMinutes; // Check previous restart
+            // Assumes the previous slot was 6 hours earlier. Wrong if the schedule is tighter than that.
+            var minutesSinceRestart = (nowEst - nextRestart.AddHours(-6)).TotalMinutes;
             if (minutesSinceRestart >= 0 && minutesSinceRestart <= _config.PeriodicMessages.ResumeAfterRestartMinutes)
             {
                 return true;
@@ -193,7 +178,6 @@ public sealed class PeriodicMessageService : IDisposable
 
     private void RescheduleAfterRestartWindow()
     {
-        // Calculate when the next safe window opens
         var estZone = TimeZoneInfo.FindSystemTimeZoneById(_config.TimeZone);
         var nowEst = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, estZone);
 
@@ -205,7 +189,6 @@ public sealed class PeriodicMessageService : IDisposable
 
         if (nextRestartHour == default)
         {
-            // No more restarts today, use first restart tomorrow
             nextRestartHour = new DateTime(nowEst.Year, nowEst.Month, nowEst.Day, _config.FixedScheduleHoursEST.First(), 0, 0).AddDays(1);
         }
 
@@ -233,15 +216,12 @@ public sealed class PeriodicMessageService : IDisposable
         string message = _shuffledMessages[_currentIndex];
         _log.Info($"[PeriodicMessages] Broadcasting tip {_currentIndex + 1}/{_shuffledMessages.Count}: {message.Substring(0, Math.Min(50, message.Length))}...");
 
-        // Use Orchestrator to broadcast to all servers
         await _orchestrator.BroadcastToAllServersAsync(message);
 
         MessageSent?.Invoke(message);
 
-        // Move to next message
         _currentIndex = (_currentIndex + 1) % _shuffledMessages.Count;
 
-        // If we've cycled through all messages, reshuffle if configured
         if (_currentIndex == 0 && _config.PeriodicMessages.RandomizeOrder)
         {
             _log.Info("[PeriodicMessages] Completed full cycle - reshuffling messages.");

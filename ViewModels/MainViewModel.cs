@@ -95,19 +95,16 @@ public sealed class MainViewModel : ViewModelBase
         _config = config;
         _log = log;
 
-        // Initialize server view models
         foreach (var server in servers)
         {
             Servers.Add(new ServerViewModel { ServerInfo = server });
         }
 
-        // Initialize broadcast templates
         foreach (var template in config.BroadcastTemplates)
         {
             BroadcastTemplates.Add(template);
         }
 
-        // Commands
         StartAllServersCommand = new RelayCommand(async () => await OnStartAllServersAsync(), () => !IsCycleInProgress);
         ManualRestartCommand = new RelayCommand(async () => await OnManualRestartAsync(), () => !IsCycleInProgress);
         ManualShutdownCommand = new RelayCommand(async () => await OnManualShutdownAsync(), () => !IsCycleInProgress);
@@ -116,13 +113,11 @@ public sealed class MainViewModel : ViewModelBase
         BroadcastCommand = new RelayCommand(async () => await OnBroadcastAsync(), () => !string.IsNullOrWhiteSpace(BroadcastMessage));
         OpenRconConsoleCommand = new RelayCommand<ServerViewModel>(OnOpenRconConsole, s => s != null);
 
-        // Subscribe to scheduler events
         _scheduler.NextRestartChanged += OnNextRestartChanged;
         _scheduler.StatusChanged += OnStatusChanged;
         _scheduler.CycleStarted += OnCycleStarted;
         _scheduler.CycleCompleted += OnCycleCompleted;
 
-        // Start status update timer (every 5 seconds)
         _statusUpdateTimer = new System.Timers.Timer(5_000);
         _statusUpdateTimer.Elapsed += async (s, e) => await UpdateServerStatusesAsync();
         _statusUpdateTimer.AutoReset = true;
@@ -166,12 +161,11 @@ public sealed class MainViewModel : ViewModelBase
     private void OnCycleCompleted(bool success)
     {
         IsCycleInProgress = false;
-        _ = UpdateServerStatusesAsync(); // Refresh server statuses
+        _ = UpdateServerStatusesAsync();
     }
 
     private async Task OnStartAllServersAsync()
     {
-        // Refresh server statuses first
         await UpdateServerStatusesAsync();
         
         var offlineServers = Servers.Where(s => !s.IsOnline).ToList();
@@ -205,8 +199,8 @@ public sealed class MainViewModel : ViewModelBase
                 
                 await orchestrator.StartAllOfflineServersAsync(offlineServers.Select(s => s.ServerInfo).ToList());
                 
-                // Refresh all server statuses
-                await Task.Delay(2000); // Give servers a moment to start
+                // Process is up before RCON will answer.
+                await Task.Delay(2000);
                 await UpdateServerStatusesAsync();
                 
                 StatusText = $"Successfully started {offlineServers.Count} server(s)";
@@ -266,7 +260,6 @@ public sealed class MainViewModel : ViewModelBase
 
         if (server.IsOnline)
         {
-            // Restart
             var result = System.Windows.MessageBox.Show(
                 $"Restart {server.Name}?\n\nPlayers will receive {SelectedCountdownDuration} warning before shutdown.",
                 "Confirm Restart",
@@ -280,7 +273,6 @@ public sealed class MainViewModel : ViewModelBase
         }
         else
         {
-            // Start (no countdown needed)
             await StartSingleServerAsync(server);
         }
     }
@@ -427,7 +419,6 @@ public sealed class MainViewModel : ViewModelBase
     }
 }
 
-// Simple relay command implementation
 public class RelayCommand : ICommand
 {
     private readonly Func<Task>? _executeAsync;

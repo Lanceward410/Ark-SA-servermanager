@@ -23,7 +23,6 @@ public partial class App : Application
 
     private async void Application_Startup(object sender, StartupEventArgs e)
     {
-        // Single instance check
         if (!_mutex.WaitOne(TimeSpan.Zero, true))
         {
             MessageBox.Show("ARK Automata is already running.", "Already Running", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -33,7 +32,6 @@ public partial class App : Application
 
         try
         {
-            // Load configuration
             var baseDir = AppDomain.CurrentDomain.BaseDirectory;
             var configPath = Path.Combine(baseDir, "config.json");
             var asctConfigPath = Path.Combine(baseDir, "..", "ASCTGlobalConfig.json");
@@ -55,7 +53,6 @@ public partial class App : Application
             logger.Info("  ARK Automata GUI Starting");
             logger.Info("════════════════════════════════════════════════════");
 
-            // Load server information
             var asctJson = File.ReadAllText(asctConfigPath);
             var asctConfig = JsonConvert.DeserializeObject<ASCTGlobalConfig>(asctJson);
             var servers = LoadServerInfos(asctConfig!, logger);
@@ -67,25 +64,19 @@ public partial class App : Application
                 return;
             }
 
-            // Create orchestrator and scheduler
             var orchestrator = new Orchestrator(config, asctConfigPath, depotDownloaderPath, logger);
             _scheduler = new SchedulerService(orchestrator, config, logger);
 
-            // Create periodic message service
             _periodicMessageService = new PeriodicMessageService(orchestrator, config, logger, _scheduler);
 
-            // Create ViewModel
             _viewModel = new MainViewModel(_scheduler, servers, config, logger);
 
-            // Setup system tray
             _notifyIcon = (TaskbarIcon)FindResource("NotifyIcon");
             _notifyIcon.DataContext = this;
 
-            // Create main window
             _mainWindow = new MainWindow(_viewModel);
-            MainWindow = _mainWindow; // Set as application's main window
+            MainWindow = _mainWindow;
 
-            // Check for --minimize flag
             bool startMinimized = e.Args.Contains("--minimize");
 
             if (startMinimized)
@@ -99,10 +90,8 @@ public partial class App : Application
                 _mainWindow.Show();
             }
 
-            // Initialize
             await _viewModel.InitializeAsync();
 
-            // Start periodic message service after ViewModel is ready
             _periodicMessageService?.Start();
 
             logger.Info("GUI initialized successfully");

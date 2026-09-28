@@ -50,7 +50,6 @@ public sealed class ServerViewModel : ViewModelBase
 
     public async Task UpdateStatusAsync()
     {
-        // Check if process is running
         var process = FindServerProcess();
         IsOnline = process != null;
 
@@ -61,7 +60,6 @@ public sealed class ServerViewModel : ViewModelBase
             return;
         }
 
-        // Try to get player count via RCON
         try
         {
             using var rcon = new RconClient(10000);
@@ -101,7 +99,7 @@ public sealed class ServerViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(response))
             return 0;
 
-        // Count lines that match pattern: "0. PlayerName, SteamID"
+        // listplayers lines start with the player index.
         var lines = response.Split('\n', StringSplitOptions.RemoveEmptyEntries);
         return lines.Count(line =>
         {

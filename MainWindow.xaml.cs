@@ -20,7 +20,6 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         DataContext = _viewModel;
 
-        // Start live log tailing
         StartLogTailing();
     }
 
@@ -57,13 +56,12 @@ public partial class MainWindow : Window
                 }
                 catch { }
 
-                await Task.Delay(2000); // Refresh every 2 seconds
+                await Task.Delay(2000);
             }
         });
     }
 }
 
-// Converter helper
 public class InverseBooleanConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)

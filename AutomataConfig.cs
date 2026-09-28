@@ -5,23 +5,17 @@ using Newtonsoft.Json;
 
 namespace ArkAutomata;
 
-// ─── Automata's own configuration (config.json) ────────────────────────────
-
 public sealed class AutomataConfig
 {
-    /// <summary>Use fixed schedule (true) or interval-based (false).</summary>
     public bool UseFixedSchedule { get; set; } = true;
 
-    /// <summary>How often the update cycle runs, in minutes (used if UseFixedSchedule=false).</summary>
+    // Ignored by the GUI scheduler. The console app still waits this many minutes.
     public int ScheduleIntervalMinutes { get; set; } = 360;
 
-    /// <summary>Restart hours in EST for fixed schedule mode.</summary>
     public List<int> FixedScheduleHoursEST { get; set; } = new() { 0, 6, 12, 18 };
 
-    /// <summary>Time zone for fixed schedule (e.g., "Eastern Standard Time").</summary>
     public string TimeZone { get; set; } = "Eastern Standard Time";
 
-    /// <summary>Pre-saved broadcast message templates.</summary>
     public List<string> BroadcastTemplates { get; set; } = new()
     {
         "Server restart in 15 minutes for maintenance",
@@ -29,7 +23,6 @@ public sealed class AutomataConfig
         "Special event rates active!"
     };
 
-    /// <summary>Countdown broadcast messages for RESTART operations.</summary>
     public List<CountdownMessage> CountdownMessages { get; set; } = new()
     {
         new() { SecondsRemaining = 300, Message = "Server restarting in 5 minutes. Please find a safe location." },
@@ -41,7 +34,6 @@ public sealed class AutomataConfig
         new() { SecondsRemaining = 15,  Message = "Server restarting in 15 seconds! Disconnecting all players." },
     };
 
-    /// <summary>Countdown broadcast messages for SHUTDOWN operations.</summary>
     public List<CountdownMessage> ShutdownMessages { get; set; } = new()
     {
         new() { SecondsRemaining = 300, Message = "Server restarting in 5 minutes. Please find a safe location." },
@@ -53,49 +45,34 @@ public sealed class AutomataConfig
         new() { SecondsRemaining = 15,  Message = "Server restarting in 15 seconds! Disconnecting all players." },
     };
 
-    /// <summary>Seconds between broadcasting to consecutive servers in each wave.</summary>
     public int BroadcastStaggerSeconds { get; set; } = 5;
 
-    /// <summary>Seconds to wait after all servers are confirmed dead before starting updates.</summary>
     public int PostShutdownCooldownSeconds { get; set; } = 15;
 
-    /// <summary>Seconds between starting each server in Phase 5.</summary>
     public int ServerStartStaggerSeconds { get; set; } = 5;
 
-    /// <summary>How long to run the rapid-kick loop per server (seconds).</summary>
     public int KickMonitorDurationSeconds { get; set; } = 7;
 
-    /// <summary>Milliseconds between each iteration of the kick loop.</summary>
     public int KickLoopIntervalMs { get; set; } = 1000;
 
-    /// <summary>Maximum number of update attempts per server before aborting.</summary>
     public int UpdateMaxRetries { get; set; } = 3;
 
-    /// <summary>Seconds to wait between update retry attempts.</summary>
     public int UpdateRetryDelaySeconds { get; set; } = 30;
 
-    /// <summary>Max seconds to wait for a server process to exit before force-killing.</summary>
     public int ProcessExitTimeoutSeconds { get; set; } = 120;
 
-    /// <summary>Seconds to wait after saveworld before sending doexit.</summary>
     public int SaveWorldDelaySeconds { get; set; } = 5;
 
-    /// <summary>Timeout for RCON operations (connect + command response) in milliseconds.</summary>
     public int RconTimeoutMs { get; set; } = 30000;
 
-    /// <summary>Relative path from the Automata directory to ASCTGlobalConfig.json.</summary>
     public string ASCTConfigRelativePath { get; set; } = @"..\ASCTGlobalConfig.json";
 
-    /// <summary>Relative path from the Automata directory to DepotDownloader.exe.</summary>
     public string DepotDownloaderRelativePath { get; set; } = @"..\depotdownloader\DepotDownloader.exe";
 
-    /// <summary>Steam App ID for the ARK: Survival Ascended dedicated server.</summary>
-    public int SteamAppId { get; set; } = 2430930;
+    public int SteamAppId { get; set; } = 2430930; // ASA dedicated server
 
-    /// <summary>Optional extra arguments passed to DepotDownloader (e.g. "-username X -password Y").</summary>
     public string DepotDownloaderExtraArgs { get; set; } = "";
 
-    /// <summary>Configuration for periodic "tips and tricks" messages.</summary>
     public PeriodicMessagesConfig PeriodicMessages { get; set; } = new();
 
     public static AutomataConfig Load(string path)
@@ -103,6 +80,7 @@ public sealed class AutomataConfig
         string json = File.ReadAllText(path);
         var settings = new JsonSerializerSettings
         {
+            // Without Replace, Newtonsoft appends JSON arrays onto the defaults above.
             ObjectCreationHandling = ObjectCreationHandling.Replace
         };
         return JsonConvert.DeserializeObject<AutomataConfig>(json, settings)
@@ -112,31 +90,23 @@ public sealed class AutomataConfig
 
 public sealed class CountdownMessage
 {
-    /// <summary>Seconds remaining until shutdown when this message is broadcast.</summary>
     public int SecondsRemaining { get; set; }
 
-    /// <summary>The broadcast message text.</summary>
     public string Message { get; set; } = "";
 }
 
 public sealed class PeriodicMessagesConfig
 {
-    /// <summary>Enable periodic tip messages.</summary>
     public bool Enabled { get; set; } = true;
 
-    /// <summary>Interval between messages in minutes.</summary>
     public int IntervalMinutes { get; set; } = 45;
 
-    /// <summary>Randomize message order each restart cycle.</summary>
     public bool RandomizeOrder { get; set; } = true;
 
-    /// <summary>Minutes to pause before a scheduled restart.</summary>
     public int PauseBeforeRestartMinutes { get; set; } = 10;
 
-    /// <summary>Minutes to wait after restart before resuming messages.</summary>
     public int ResumeAfterRestartMinutes { get; set; } = 10;
 
-    /// <summary>List of tip messages to broadcast.</summary>
     public List<string> Messages { get; set; } = new()
     {
         "Shiny dinos spawn up to 30 levels higher than their counterparts, with unique abilities and colors. Craft the Shiny dino tracker to get hunting.",
@@ -150,8 +120,7 @@ public sealed class PeriodicMessagesConfig
     };
 }
 
-// ─── ASCT configuration models (ASCTGlobalConfig.json) ─────────────────────
-// Only the fields we need are mapped here.
+// Subset of ASCTGlobalConfig.json. Anything not mapped here is ignored.
 
 public sealed class ASCTGlobalConfig
 {

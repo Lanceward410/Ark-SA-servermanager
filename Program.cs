@@ -4,7 +4,6 @@ class Program
 {
     static async Task<int> Main(string[] args)
     {
-        // ── Single-instance guard ──────────────────────────────────────
         using var mutex = new Mutex(true, @"Global\ArkAutomata_SingleInstance", out bool isNew);
         if (!isNew)
         {
@@ -12,7 +11,6 @@ class Program
             return 1;
         }
 
-        // ── Locate base directory (where config.json lives) ───────────
         string baseDir = FindBaseDirectory();
         string configPath = Path.Combine(baseDir, "config.json");
 
@@ -23,7 +21,6 @@ class Program
             return 1;
         }
 
-        // ── Initialise logger ─────────────────────────────────────────
         var logger = new AutomataLogger(Path.Combine(baseDir, "autologs"));
         logger.Info("============================================================");
         logger.Info("  ArkAutomata — Autonomous ARK Server Update Manager");
@@ -33,11 +30,9 @@ class Program
 
         try
         {
-            // ── Load configuration ────────────────────────────────────
             var config = AutomataConfig.Load(configPath);
             logger.Info($"Schedule       : every {config.ScheduleIntervalMinutes} minutes");
 
-            // ── Resolve dependent paths ───────────────────────────────
             string asctConfigPath = Path.GetFullPath(
                 Path.Combine(baseDir, config.ASCTConfigRelativePath));
             string depotDownloaderPath = Path.GetFullPath(
@@ -57,14 +52,11 @@ class Program
                 return 1;
             }
 
-            // ── Create orchestrator ───────────────────────────────────
             var orchestrator = new Orchestrator(config, asctConfigPath, depotDownloaderPath, logger);
 
-            // ── Parse command-line flags ──────────────────────────────
             bool flagOnce = args.Any(a => a.Equals("--once", StringComparison.OrdinalIgnoreCase));
             bool flagNow  = args.Any(a => a.Equals("--now",  StringComparison.OrdinalIgnoreCase));
 
-            // --once : Run a single cycle immediately, then exit.
             if (flagOnce)
             {
                 logger.Info("Mode: --once (single cycle, then exit)");
@@ -72,7 +64,6 @@ class Program
                 return ok ? 0 : 1;
             }
 
-            // Scheduled mode (default)
             logger.Info("Mode: Scheduled (continuous)");
 
             if (flagNow)
@@ -87,7 +78,6 @@ class Program
                 await Task.Delay(TimeSpan.FromMinutes(config.ScheduleIntervalMinutes));
             }
 
-            // ── Main scheduling loop ─────────────────────────────────
             while (true)
             {
                 await orchestrator.RunUpdateCycleAsync();
@@ -104,28 +94,17 @@ class Program
         }
     }
 
-    // ── Locate the directory containing config.json ────────────────────
-
-    /// <summary>
-    /// Searches for config.json in order:
-    ///   1. Current working directory
-    ///   2. Directory containing the running executable
-    ///   3. Walk upward from the executable directory
-    /// Falls back to the current working directory.
-    /// </summary>
+    // cwd, then the exe folder, then parents so a build under bin/Debug still finds config.json.
     private static string FindBaseDirectory()
     {
-        // 1. Current working directory
         string cwd = Environment.CurrentDirectory;
         if (File.Exists(Path.Combine(cwd, "config.json")))
             return cwd;
 
-        // 2. Executable's own directory
         string exeDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
         if (File.Exists(Path.Combine(exeDir, "config.json")))
             return exeDir;
 
-        // 3. Walk upward from executable directory (handles bin/Debug/net9.0 during dev)
         var dir = Directory.GetParent(exeDir);
         while (dir != null)
         {
@@ -134,7 +113,6 @@ class Program
             dir = dir.Parent;
         }
 
-        // Fallback
         return cwd;
     }
 }

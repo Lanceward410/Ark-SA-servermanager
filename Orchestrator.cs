@@ -10,8 +10,6 @@ using Newtonsoft.Json;
 
 namespace ArkAutomata;
 
-// ─── Enriched server info (ASCT config + RCON details from .ini) ───────────
-
 public sealed class ServerInfo
 {
     public required ASCTServerConfig Config { get; init; }
@@ -21,8 +19,6 @@ public sealed class ServerInfo
     public string ServerExePath =>
         Path.Combine(Config.GameDirectory, "ShooterGame", "Binaries", "Win64", "ArkAscendedServer.exe");
 }
-
-// ─── Main orchestrator ─────────────────────────────────────────────────────
 
 public sealed class Orchestrator
 {
@@ -43,14 +39,6 @@ public sealed class Orchestrator
         _log = logger;
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  Top-level cycle
-    // ════════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Runs one complete update cycle: broadcast → kick → save → exit → update → start.
-    /// Returns true if the entire cycle completed successfully.
-    /// </summary>
     public async Task<bool> RunUpdateCycleAsync(bool runUpdates = true, int countdownSeconds = 300)
     {
         _log.Info("============================================================");
@@ -60,7 +48,6 @@ public sealed class Orchestrator
 
         try
         {
-            // ── Load server information ────────────────────────────────
             var servers = LoadServerInfos();
             if (servers.Count == 0)
             {
@@ -71,19 +58,16 @@ public sealed class Orchestrator
             foreach (var s in servers)
                 _log.Info($"  Server: {s.Config.Name}  |  Port {s.Config.GamePort}  |  RCON {s.RconPort}");
 
-            // ── Determine which servers are currently running ──────────
             var runningServers = servers.Where(s => FindServerProcess(s) != null).ToList();
             _log.Info($"{runningServers.Count}/{servers.Count} server(s) currently running.");
 
             if (runningServers.Count > 0)
             {
-                // Phase 1 — Countdown broadcasts (staggered per server)
                 _log.Info("────────────────────────────────────────────────────────────");
                 _log.Info("[Phase 1] Broadcasting restart warnings...");
                 _log.Info("────────────────────────────────────────────────────────────");
                 await Phase1_BroadcastCountdownAsync(runningServers, countdownSeconds, isRestart: true);
 
-                // Phase 2 — Kick all players, save, exit (parallel across servers)
                 _log.Info("────────────────────────────────────────────────────────────");
                 _log.Info("[Phase 2] Shutdown sequence: kick → save → doexit");
                 _log.Info("────────────────────────────────────────────────────────────");
@@ -94,7 +78,6 @@ public sealed class Orchestrator
                 _log.Info("No servers running — skipping Phase 1 and Phase 2.");
             }
 
-            // Phase 3 — Confirm all processes dead + cooldown
             _log.Info("────────────────────────────────────────────────────────────");
             _log.Info("[Phase 3] Confirming all server processes have exited...");
             _log.Info("────────────────────────────────────────────────────────────");
@@ -103,7 +86,6 @@ public sealed class Orchestrator
             _log.Info($"[Phase 3] Post-shutdown cooldown: {_config.PostShutdownCooldownSeconds}s...");
             await Task.Delay(_config.PostShutdownCooldownSeconds * 1000);
 
-            // Phase 4 — Sequential DepotDownloader updates (optional)
             if (runUpdates)
             {
                 _log.Info("────────────────────────────────────────────────────────────");
@@ -125,7 +107,6 @@ public sealed class Orchestrator
                 _log.Info("────────────────────────────────────────────────────────────");
             }
 
-            // Phase 5 — Start servers sequentially with stagger
             _log.Info("────────────────────────────────────────────────────────────");
             _log.Info("[Phase 5] Starting servers (staggered)...");
             _log.Info("────────────────────────────────────────────────────────────");
@@ -144,10 +125,6 @@ public sealed class Orchestrator
         }
     }
 
-    /// <summary>
-    /// Shutdown servers only (no update/restart): broadcast → kick → save → exit → confirm.
-    /// Returns true if shutdown completed successfully.
-    /// </summary>
     public async Task<bool> ShutdownServersOnlyAsync(int countdownSeconds = 300)
     {
         _log.Info("============================================================");
@@ -157,7 +134,6 @@ public sealed class Orchestrator
 
         try
         {
-            // ── Load server information ────────────────────────────────
             var servers = LoadServerInfos();
             if (servers.Count == 0)
             {
@@ -168,19 +144,16 @@ public sealed class Orchestrator
             foreach (var s in servers)
                 _log.Info($"  Server: {s.Config.Name}  |  Port {s.Config.GamePort}  |  RCON {s.RconPort}");
 
-            // ── Determine which servers are currently running ──────────
             var runningServers = servers.Where(s => FindServerProcess(s) != null).ToList();
             _log.Info($"{runningServers.Count}/{servers.Count} server(s) currently running.");
 
             if (runningServers.Count > 0)
             {
-                // Phase 1 — Countdown broadcasts (staggered per server)
                 _log.Info("────────────────────────────────────────────────────────────");
                 _log.Info("[Phase 1] Broadcasting shutdown warnings...");
                 _log.Info("────────────────────────────────────────────────────────────");
                 await Phase1_BroadcastCountdownAsync(runningServers, countdownSeconds, isRestart: false);
 
-                // Phase 2 — Kick all players, save, exit (parallel across servers)
                 _log.Info("────────────────────────────────────────────────────────────");
                 _log.Info("[Phase 2] Shutdown sequence: kick → save → doexit");
                 _log.Info("────────────────────────────────────────────────────────────");
@@ -192,7 +165,6 @@ public sealed class Orchestrator
                 return true;
             }
 
-            // Phase 3 — Confirm all processes dead + cooldown
             _log.Info("────────────────────────────────────────────────────────────");
             _log.Info("[Phase 3] Confirming all server processes have exited...");
             _log.Info("────────────────────────────────────────────────────────────");
@@ -211,13 +183,6 @@ public sealed class Orchestrator
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  Single-server operations
-    // ════════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Start a single server.
-    /// </summary>
     public Task<bool> StartSingleServerAsync(ServerInfo server)
     {
         _log.Info($"[{server.Config.Name}] Starting server...");
@@ -241,9 +206,6 @@ public sealed class Orchestrator
         }
     }
 
-    /// <summary>
-    /// Start all offline servers (staggered). Skips servers that are already running.
-    /// </summary>
     public async Task<bool> StartAllOfflineServersAsync(List<ServerInfo> offlineServers)
     {
         _log.Info("============================================================");
@@ -258,7 +220,7 @@ public sealed class Orchestrator
         {
             var server = offlineServers[i];
 
-            // Double-check if server is already running (race condition protection)
+            // Can come up while we wait out the stagger on the previous server.
             var existingProcess = FindServerProcess(server);
             if (existingProcess != null)
             {
@@ -267,7 +229,6 @@ public sealed class Orchestrator
                 continue;
             }
 
-            // Add stagger delay between servers (except for first one)
             if (i > 0)
             {
                 _log.Info($"Stagger delay: {_config.ServerStartStaggerSeconds}s before next server...");
@@ -300,9 +261,6 @@ public sealed class Orchestrator
         return failedCount == 0;
     }
 
-    /// <summary>
-    /// Restart a single server with countdown, optional update.
-    /// </summary>
     public async Task<bool> RestartSingleServerAsync(ServerInfo server, bool runUpdate = true, int countdownSeconds = 300)
     {
         _log.Info($"[{server.Config.Name}] ══════════════════════════════════════");
@@ -313,18 +271,15 @@ public sealed class Orchestrator
         {
             var servers = new List<ServerInfo> { server };
 
-            // Countdown with RESTART messages
             _log.Info($"[{server.Config.Name}] Broadcasting restart countdown...");
             await Phase1_BroadcastCountdownAsync(servers, countdownSeconds, isRestart: true);
 
-            // Shutdown
             _log.Info($"[{server.Config.Name}] Shutting down...");
             await Phase2_ShutdownServersAsync(servers);
             await Phase3_ConfirmProcessExitAsync(servers);
 
             await Task.Delay(_config.PostShutdownCooldownSeconds * 1000);
 
-            // Update (optional)
             if (runUpdate)
             {
                 _log.Info($"[{server.Config.Name}] Running update...");
@@ -340,7 +295,6 @@ public sealed class Orchestrator
                 _log.Info($"[{server.Config.Name}] Skipping update");
             }
 
-            // Start
             _log.Info($"[{server.Config.Name}] Starting server...");
             var process = StartServerProcess(server);
             if (process == null)
@@ -359,9 +313,6 @@ public sealed class Orchestrator
         }
     }
 
-    /// <summary>
-    /// Stop a single server with countdown.
-    /// </summary>
     public async Task<bool> StopSingleServerAsync(ServerInfo server, int countdownSeconds = 300)
     {
         _log.Info($"[{server.Config.Name}] ══════════════════════════════════════");
@@ -372,11 +323,9 @@ public sealed class Orchestrator
         {
             var servers = new List<ServerInfo> { server };
 
-            // Countdown with SHUTDOWN messages
             _log.Info($"[{server.Config.Name}] Broadcasting shutdown countdown...");
             await Phase1_BroadcastCountdownAsync(servers, countdownSeconds, isRestart: false);
 
-            // Shutdown
             _log.Info($"[{server.Config.Name}] Shutting down...");
             await Phase2_ShutdownServersAsync(servers);
             await Phase3_ConfirmProcessExitAsync(servers);
@@ -391,9 +340,6 @@ public sealed class Orchestrator
         }
     }
 
-    /// <summary>
-    /// Broadcasts a message to all servers via RCON.
-    /// </summary>
     public async Task BroadcastToAllServersAsync(string message)
     {
         var servers = LoadServerInfos();
@@ -411,7 +357,7 @@ public sealed class Orchestrator
         {
             await BroadcastToServerAsync(server, message);
             
-            // Small stagger to avoid overwhelming RCON
+            // Four servers at once and RCON starts dropping.
             if (server != runningServers.Last())
                 await Task.Delay(_config.BroadcastStaggerSeconds * 1000);
         }
@@ -419,7 +365,6 @@ public sealed class Orchestrator
 
     private async Task<bool> UpdateSingleServerAsync(ServerInfo server)
     {
-        // Read the validate flag from the live ASCT config
         bool validate;
         try
         {
@@ -505,6 +450,25 @@ public sealed class Orchestrator
             };
 
             var process = Process.Start(psi);
+            if (process == null)
+            {
+                _log.Error($"[{server.Config.Name}] Process.Start returned null.");
+                return null;
+            }
+
+            try
+            {
+                // PriorityClass throws if the handle is not ready yet.
+                Thread.Sleep(500);
+                // Otherwise Windows treats the server like a normal app and it stutters under load.
+                process.PriorityClass = ProcessPriorityClass.High;
+                _log.Info($"[{server.Config.Name}] Process priority set to High.");
+            }
+            catch (Exception ex)
+            {
+                _log.Warning($"[{server.Config.Name}] Started, but failed to set High priority: {ex.Message}");
+            }
+
             _log.Info($"[{server.Config.Name}] Started. Args: {launchArgs}");
             return process;
         }
@@ -514,10 +478,6 @@ public sealed class Orchestrator
             return null;
         }
     }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  Phase 1 — Countdown broadcasts
-    // ════════════════════════════════════════════════════════════════════════
 
     private async Task Phase1_BroadcastCountdownAsync(List<ServerInfo> servers, int countdownSeconds = 300, bool isRestart = true)
     {
@@ -529,7 +489,7 @@ public sealed class Orchestrator
             return;
         }
 
-        // The first message's SecondsRemaining defines the total countdown duration.
+        // Sorted longest-first, so [0] is the full countdown.
         int totalCountdownSec = messages[0].SecondsRemaining;
         var shutdownTime = DateTime.UtcNow.AddSeconds(totalCountdownSec);
 
@@ -539,13 +499,11 @@ public sealed class Orchestrator
         {
             var msg = messages[i];
 
-            // Wait until it's time to send this message
             var sendAt = shutdownTime.AddSeconds(-msg.SecondsRemaining);
             var delay = sendAt - DateTime.UtcNow;
             if (delay.TotalMilliseconds > 0)
                 await Task.Delay(delay);
 
-            // Broadcast to each server, staggered
             for (int s = 0; s < servers.Count; s++)
             {
                 if (s > 0)
@@ -555,7 +513,6 @@ public sealed class Orchestrator
             }
         }
 
-        // Wait any remaining time until the shutdown moment
         var remaining = shutdownTime - DateTime.UtcNow;
         if (remaining.TotalMilliseconds > 0)
         {
@@ -581,10 +538,6 @@ public sealed class Orchestrator
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  Phase 2 — Kick all players → Save → Exit (parallel across servers)
-    // ════════════════════════════════════════════════════════════════════════
-
     private async Task Phase2_ShutdownServersAsync(List<ServerInfo> servers)
     {
         var tasks = servers.Select(ShutdownSingleServerAsync).ToArray();
@@ -599,7 +552,6 @@ public sealed class Orchestrator
             using var rcon = new RconClient(_config.RconTimeoutMs);
             await rcon.ConnectAsync("127.0.0.1", server.RconPort, server.AdminPassword);
 
-            // ── Rapid kick loop ────────────────────────────────────────
             _log.Info($"[{server.Config.Name}] Rapid kick loop started ({_config.KickMonitorDurationSeconds}s)...");
             var kickEnd = DateTime.UtcNow.AddSeconds(_config.KickMonitorDurationSeconds);
             int totalKicked = 0;
@@ -637,7 +589,6 @@ public sealed class Orchestrator
 
             _log.Info($"[{server.Config.Name}] Kick loop finished — {totalKicked} kick command(s) sent.");
 
-            // ── Save world ─────────────────────────────────────────────
             _log.Info($"[{server.Config.Name}] Saving world...");
             try
             {
@@ -650,7 +601,6 @@ public sealed class Orchestrator
                 _log.Warning($"[{server.Config.Name}] saveworld failed: {ex.Message} — proceeding to doexit anyway.");
             }
 
-            // ── Graceful exit ──────────────────────────────────────────
             _log.Info($"[{server.Config.Name}] Sending doexit...");
             try
             {
@@ -658,7 +608,7 @@ public sealed class Orchestrator
             }
             catch
             {
-                // Expected — the server closes the connection as part of its shutdown.
+                // doexit drops the socket. That is the success path.
             }
 
             _log.Info($"[{server.Config.Name}] doexit issued.");
@@ -669,10 +619,6 @@ public sealed class Orchestrator
             _log.Warning($"[{server.Config.Name}] Server will be force-killed in Phase 3 if still running.");
         }
     }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  Phase 3 — Confirm every server process has exited
-    // ════════════════════════════════════════════════════════════════════════
 
     private async Task Phase3_ConfirmProcessExitAsync(List<ServerInfo> servers)
     {
@@ -710,13 +656,8 @@ public sealed class Orchestrator
         }
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  Phase 4 — Sequential server updates via DepotDownloader
-    // ════════════════════════════════════════════════════════════════════════
-
     private async Task<bool> Phase4_UpdateServersAsync(List<ServerInfo> servers)
     {
-        // Read the validate flag from the live ASCT config
         bool validate;
         try
         {
@@ -726,7 +667,7 @@ public sealed class Orchestrator
         }
         catch
         {
-            validate = true; // Default to validation if we can't read the flag
+            validate = true;
         }
 
         foreach (var server in servers)
@@ -745,7 +686,6 @@ public sealed class Orchestrator
 
                 var result = await RunProcessCapturedAsync(_depotDownloaderPath, args);
 
-                // Log output (trim to avoid massive log dumps)
                 if (!string.IsNullOrWhiteSpace(result.StdOut))
                 {
                     string trimmedOut = result.StdOut.Length > 2000
@@ -784,10 +724,6 @@ public sealed class Orchestrator
         _log.Info("All servers updated successfully.");
         return true;
     }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  Phase 5 — Start servers sequentially with stagger
-    // ════════════════════════════════════════════════════════════════════════
 
     private async Task Phase5_StartServersAsync(List<ServerInfo> servers)
     {
@@ -840,29 +776,16 @@ public sealed class Orchestrator
         _log.Info("All servers have been started.");
     }
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  Helpers
-    // ════════════════════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Generate countdown messages dynamically based on total countdown duration and operation type.
-    /// </summary>
     private List<CountdownMessage> GenerateCountdownMessages(int totalSeconds, bool isRestart = true)
     {
-        // Use the appropriate message set from config
         var sourceMessages = isRestart ? _config.CountdownMessages : _config.ShutdownMessages;
 
-        // Filter messages to only include those that fit within the countdown duration
         return sourceMessages
             .Where(m => m.SecondsRemaining <= totalSeconds)
             .OrderByDescending(m => m.SecondsRemaining)
             .ToList();
     }
 
-    /// <summary>
-    /// Load all servers from the ASCT config, enriching each with RCON port and admin password
-    /// read from the server's own GameUserSettings.ini.
-    /// </summary>
     private List<ServerInfo> LoadServerInfos()
     {
         var json = File.ReadAllText(_asctConfigPath);
@@ -897,9 +820,6 @@ public sealed class Orchestrator
         return servers;
     }
 
-    /// <summary>
-    /// Parse RCONPort and ServerAdminPassword from a server's GameUserSettings.ini.
-    /// </summary>
     private static (int rconPort, string adminPassword) ReadServerIniSettings(string gameDirectory)
     {
         var iniPath = Path.Combine(
@@ -928,10 +848,6 @@ public sealed class Orchestrator
         return (rconPort, adminPassword);
     }
 
-    /// <summary>
-    /// Find a running ArkAscendedServer.exe process that belongs to a specific server
-    /// by matching the full executable path.
-    /// </summary>
     private static Process? FindServerProcess(ServerInfo server)
     {
         var targetExe = Path.GetFullPath(server.ServerExePath);
@@ -947,29 +863,25 @@ public sealed class Orchestrator
                 }
                 catch
                 {
-                    // Access denied for processes owned by other users — skip.
+                    // MainModule throws for processes we do not own.
                 }
             }
         }
         catch
         {
-            // GetProcessesByName can throw if the process list changes during enumeration.
+            // The process list can change while we walk it.
         }
 
         return null;
     }
 
-    /// <summary>
-    /// Parse the output of the RCON "listplayers" command into a list of player IDs.
-    /// Expected line format: "0. PlayerName, SteamID_or_EOS_ID"
-    /// </summary>
     private static List<string> ParsePlayerList(string response)
     {
         var ids = new List<string>();
         if (string.IsNullOrWhiteSpace(response))
             return ids;
 
-        // Match lines like "0. SomeName, 76561198012345678" or "0. SomeName, EOS_00abc..."
+        // "0. Name, 7656..." or "0. Name, EOS_..."
         var regex = new Regex(@"^\d+\.\s+.+,\s+(\S+)\s*$", RegexOptions.Multiline);
         foreach (Match match in regex.Matches(response))
         {
@@ -980,9 +892,6 @@ public sealed class Orchestrator
         return ids;
     }
 
-    /// <summary>
-    /// Format elapsed time in a human-readable way (e.g., "2 minutes 35 seconds").
-    /// </summary>
     private static string FormatElapsedTime(TimeSpan elapsed)
     {
         if (elapsed.TotalHours >= 1)
@@ -999,10 +908,7 @@ public sealed class Orchestrator
         }
     }
 
-    /// <summary>
-    /// Build minimal launch arguments when customLaunchArgs is not available.
-    /// This is a fallback — customLaunchArgs from ASCT config should be preferred.
-    /// </summary>
+    // Used only when the server has no customLaunchArgs in ASCT config.
     private static string BuildDefaultLaunchArgs(ServerInfo server)
     {
         var sc = server.Config;
@@ -1010,9 +916,6 @@ public sealed class Orchestrator
         return $"\"{sc.Map}\" \"-port={sc.GamePort}\" -WinLiveMaxPlayers={sc.Slots}{mods}";
     }
 
-    /// <summary>
-    /// Run an external process, capturing stdout and stderr.
-    /// </summary>
     private static async Task<ProcessResult> RunProcessCapturedAsync(string fileName, string arguments)
     {
         var psi = new ProcessStartInfo
@@ -1028,7 +931,7 @@ public sealed class Orchestrator
         var process = new Process { StartInfo = psi };
         process.Start();
 
-        // Read stdout and stderr concurrently to avoid deadlocks
+        // Read both, or a full pipe deadlocks WaitForExit.
         var stdoutTask = process.StandardOutput.ReadToEndAsync();
         var stderrTask = process.StandardError.ReadToEndAsync();
 
